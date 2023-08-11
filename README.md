@@ -4,7 +4,7 @@ This repository contains implementation of the following Merkle Trees along with
 1. **Vanilla Merkle Tree** - circuit to verify membership 
 2. **Indexed Merkle Tree** - circuit for insertion, checking membership and checking non-membership
 
-All the trees use Poseidon hash function implemnted using [Neptune](https://github.com/lurk-lab/neptune).
+All the trees use Poseidon hash function implemented by [Neptune](https://github.com/lurk-lab/neptune).
 
 ## References
 1. [Indexed Merkle Tree](https://docs.aztec.network/aztec/protocol/trees/indexed-merkle-tree)
