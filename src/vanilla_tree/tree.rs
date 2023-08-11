@@ -1,9 +1,9 @@
-use neptune::poseidon::PoseidonConstants;
-use ff::{PrimeField, PrimeFieldBits};
-use std::collections::HashMap;
 use crate::hash::vanilla::hash;
+use ff::{PrimeField, PrimeFieldBits};
+use neptune::poseidon::PoseidonConstants;
 use neptune::sponge::vanilla::{Sponge, SpongeTrait};
-use neptune::{Strength, Arity};
+use neptune::{Arity, Strength};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
@@ -16,7 +16,7 @@ impl<F: PrimeField + PrimeFieldBits, A: Arity<F>> Default for Leaf<F, A> {
     fn default() -> Self {
         Self {
             val: vec![F::ZERO],
-            _arity: PhantomData
+            _arity: PhantomData,
         }
     }
 }
@@ -32,19 +32,18 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct MerkleTree<F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F>> {
+pub struct MerkleTree<F: PrimeField + PrimeFieldBits, const N: usize, AL: Arity<F>, AN: Arity<F>> {
     pub root: F,
     pub hash_db: HashMap<String, (F, F)>,
     pub leaf_hash_params: PoseidonConstants<F, AL>,
     pub node_hash_params: PoseidonConstants<F, AN>,
 }
 
-impl<F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F>> MerkleTree<F, N, AL, AN> {
-    
+impl<F: PrimeField + PrimeFieldBits, const N: usize, AL: Arity<F>, AN: Arity<F>>
+    MerkleTree<F, N, AL, AN>
+{
     // Create a new tree. `empty_leaf_val` is the default value for leaf of empty tree.
-    pub fn new(
-        empty_leaf_val: Leaf<F, AL>,
-    ) -> MerkleTree<F, N, AL, AN> {
+    pub fn new(empty_leaf_val: Leaf<F, AL>) -> MerkleTree<F, N, AL, AN> {
         let mut hash_db = HashMap::<String, (F, F)>::new();
         let leaf_hash_params = Sponge::<F, AL>::api_constants(Strength::Standard);
         let node_hash_params = Sponge::<F, AN>::api_constants(Strength::Standard);
@@ -62,11 +61,7 @@ impl<F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F>> M
         }
     }
 
-    pub fn insert(
-        &mut self,
-        mut idx_in_bits: Vec<bool>,
-        val: &Leaf<F, AL>,
-    ) {
+    pub fn insert(&mut self, mut idx_in_bits: Vec<bool>, val: &Leaf<F, AL>) {
         let mut siblings = self.get_siblings_path(idx_in_bits.clone()).siblings;
 
         // Reverse since path was from root to leaf but I am going leaf to root
@@ -92,10 +87,7 @@ impl<F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F>> M
     }
 
     // Get siblings given leaf index index
-    pub fn get_siblings_path(
-        &self,
-        idx_in_bits: Vec<bool>,
-    ) -> Path<F, N, AL, AN> {
+    pub fn get_siblings_path(&self, idx_in_bits: Vec<bool>) -> Path<F, N, AL, AN> {
         let mut cur_node = self.root;
         let mut siblings = Vec::<F>::new();
 
@@ -148,15 +140,17 @@ pub fn idx_to_bits<F: PrimeField + PrimeFieldBits>(depth: usize, idx: F) -> Vec<
 pub struct Path<F, const N: usize, AL, AN>
 where
     F: PrimeField + PrimeFieldBits,
-    AL:Arity<F>, 
-    AN:Arity<F>,
+    AL: Arity<F>,
+    AN: Arity<F>,
 {
     pub siblings: Vec<F>, // siblings from root to leaf
     pub leaf_hash_params: PoseidonConstants<F, AL>,
     pub node_hash_params: PoseidonConstants<F, AN>,
 }
 
-impl<'a, F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F>> Path<F, N, AL, AN> {
+impl<'a, F: PrimeField + PrimeFieldBits, const N: usize, AL: Arity<F>, AN: Arity<F>>
+    Path<F, N, AL, AN>
+{
     pub fn compute_root(&self, mut idx_in_bits: Vec<bool>, val: &Leaf<F, AL>) -> F {
         assert_eq!(self.siblings.len(), N);
         idx_in_bits.reverse();
@@ -186,8 +180,8 @@ impl<'a, F: PrimeField + PrimeFieldBits, const N: usize, AL:Arity<F>, AN:Arity<F
 mod tests {
     use super::*;
     use ff::Field;
-    use pasta_curves::Fp;
     use generic_array::typenum::{U1, U2};
+    use pasta_curves::Fp;
 
     #[test]
     fn test_tree_insert() {
@@ -202,8 +196,11 @@ mod tests {
         for i in 0..test_cases {
             let idx = Fp::from(i);
             let idx_in_bits = idx_to_bits(HEIGHT, idx);
-            let val = Leaf { val: vec![Fp::random(&mut rng)], _arity: PhantomData } ;
-            
+            let val = Leaf {
+                val: vec![Fp::random(&mut rng)],
+                _arity: PhantomData,
+            };
+
             let path = tree.get_siblings_path(idx_in_bits.clone());
             assert!(!path.verify(idx_in_bits.clone(), &val, tree.root));
             tree.insert(idx_in_bits.clone(), &val);

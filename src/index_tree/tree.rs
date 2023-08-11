@@ -61,7 +61,9 @@ pub struct IndexTree<F: PrimeField + PrimeFieldBits, const N: usize, AL: Arity<F
     pub node_hash_params: PoseidonConstants<F, AN>,
 }
 
-impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, AN: Arity<F>> IndexTree<F, N, AL, AN> {
+impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, AN: Arity<F>>
+    IndexTree<F, N, AL, AN>
+{
     // Create a new tree. `empty_leaf_val` is the default value for leaf of empty tree.
     pub fn new(empty_leaf_val: Leaf<F, AL>) -> IndexTree<F, N, AL, AN> {
         assert!(N > 0);
@@ -164,10 +166,7 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
     }
 
     // Check that there is no Leaf with value = new_value in the tree
-    pub fn is_non_member_vanilla(
-        &self,
-        new_value: F,
-    ) -> bool {
+    pub fn is_non_member_vanilla(&self, new_value: F) -> bool {
         // Check that low leaf is memeber, self is siblings path for low_leaf
         let (low_leaf, low_int) = self.get_low_leaf(Some(new_value));
         let low_leaf_idx = idx_to_bits(N, F::from(low_int));
@@ -215,13 +214,14 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
     }
 
     pub fn get_low_leaf(&self, new_value: Option<F>) -> (Leaf<F, AL>, u64) {
-
         match new_value {
             Some(new_value) => {
                 let mut low_leaf = Leaf::default();
                 let mut low_index = 0;
                 for (i, leaf) in self.inserted_leaves.iter().enumerate() {
-                    if leaf.value.unwrap() < new_value && (leaf.next_value.unwrap() >= new_value || leaf.next_value.unwrap() == F::ZERO)
+                    if leaf.value.unwrap() < new_value
+                        && (leaf.next_value.unwrap() >= new_value
+                            || leaf.next_value.unwrap() == F::ZERO)
                     {
                         low_leaf = leaf.clone();
                         low_index = i as u64;
@@ -235,12 +235,11 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
                     value: None,
                     next_index: None,
                     next_value: None,
-                    _arity: PhantomData
+                    _arity: PhantomData,
                 };
                 (low_leaf, 0u64)
             }
         }
-
     }
 }
 
@@ -270,7 +269,7 @@ pub fn idx_to_bits<F: PrimeField + PrimeFieldBits>(depth: usize, idx: F) -> Vec<
 pub struct Path<F, const N: usize, AL, AN>
 where
     F: PrimeField + PrimeFieldBits,
-    AL: Arity<F>, 
+    AL: Arity<F>,
     AN: Arity<F>,
 {
     pub siblings: Vec<F>, // siblings from root to leaf
@@ -278,7 +277,9 @@ where
     pub node_hash_params: PoseidonConstants<F, AN>,
 }
 
-impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, AN: Arity<F>> Path<F, N, AL, AN> {
+impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, AN: Arity<F>>
+    Path<F, N, AL, AN>
+{
     pub fn compute_root(&self, mut idx_in_bits: Vec<bool>, val: &Leaf<F, AL>) -> F {
         assert_eq!(self.siblings.len(), N);
         idx_in_bits.reverse(); // from leaf to root
@@ -315,7 +316,7 @@ mod tests {
     use super::Leaf;
     use super::*;
     use crate::index_tree::tree::IndexTree;
-    use generic_array::typenum::{U3, U2};
+    use generic_array::typenum::{U2, U3};
     use pasta_curves::group::ff::Field;
     use pasta_curves::pallas::Base as Fp;
     use std::marker::PhantomData;

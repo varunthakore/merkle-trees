@@ -1,9 +1,9 @@
-use ff::{PrimeField, PrimeFieldBits};
-use neptune::sponge::vanilla::{Sponge, SpongeTrait};
-use neptune::{Strength, Arity};
+use crate::hash::circuit::hash_circuit;
 use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
 use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
-use crate::hash::circuit::hash_circuit;
+use ff::{PrimeField, PrimeFieldBits};
+use neptune::sponge::vanilla::{Sponge, SpongeTrait};
+use neptune::{Arity, Strength};
 
 pub fn path_verify_circuit<
     F: PrimeField + PrimeFieldBits,
@@ -51,10 +51,10 @@ pub fn path_verify_circuit<
     )?;
 
     cs.enforce(
-        || "constarint is_valid", 
-        |lc| lc + is_valid.get_variable(), 
-        |lc| lc + root_var.get_variable() - cur_hash_var.get_variable(), 
-        |lc| lc
+        || "constarint is_valid",
+        |lc| lc + is_valid.get_variable(),
+        |lc| lc + root_var.get_variable() - cur_hash_var.get_variable(),
+        |lc| lc,
     );
 
     Ok(is_valid)
@@ -63,12 +63,12 @@ pub fn path_verify_circuit<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ff::Field;
-    use std::marker::PhantomData;
-    use crate::vanilla_tree::tree::{MerkleTree, Leaf, idx_to_bits};
+    use crate::vanilla_tree::tree::{idx_to_bits, Leaf, MerkleTree};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
-    use pasta_curves::Fp;
+    use ff::Field;
     use generic_array::typenum::{U1, U2};
+    use pasta_curves::Fp;
+    use std::marker::PhantomData;
 
     #[test]
     fn test_path_verify() {
@@ -83,70 +83,103 @@ mod tests {
         for j in 0..test_cases {
             let idx = Fp::from(j);
             let idx_in_bits = idx_to_bits(HEIGHT, idx);
-            let leaf = Leaf { val: vec![Fp::random(&mut rng)], _arity: PhantomData } ;
-            
+            let leaf = Leaf {
+                val: vec![Fp::random(&mut rng)],
+                _arity: PhantomData,
+            };
+
             let path = tree.get_siblings_path(idx_in_bits.clone());
 
             // Allocating all variables
-            let root_var: AllocatedNum<Fp> = AllocatedNum::alloc_input(cs.namespace(|| format!("root {}", j)), || Ok(tree.root)).unwrap();
-            let val_var: Vec<AllocatedNum<Fp>> = leaf.clone().val
+            let root_var: AllocatedNum<Fp> =
+                AllocatedNum::alloc_input(cs.namespace(|| format!("root {}", j)), || Ok(tree.root))
+                    .unwrap();
+            let val_var: Vec<AllocatedNum<Fp>> = leaf
+                .clone()
+                .val
                 .into_iter()
                 .enumerate()
-                .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("{} : leaf vec {}", j, i)), || Ok(s)))
+                .map(|(i, s)| {
+                    AllocatedNum::alloc(cs.namespace(|| format!("{} : leaf vec {}", j, i)), || {
+                        Ok(s)
+                    })
+                })
                 .collect::<Result<Vec<AllocatedNum<Fp>>, SynthesisError>>()
                 .unwrap();
             let siblings_var: Vec<AllocatedNum<Fp>> = path
                 .siblings
                 .into_iter()
                 .enumerate()
-                .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("{} : sibling {}", j, i)), || Ok(s)))
+                .map(|(i, s)| {
+                    AllocatedNum::alloc(cs.namespace(|| format!("{} : sibling {}", j, i)), || Ok(s))
+                })
                 .collect::<Result<Vec<AllocatedNum<Fp>>, SynthesisError>>()
                 .unwrap();
-            let idx_var: Vec<AllocatedBit> = idx_in_bits.clone()
+            let idx_var: Vec<AllocatedBit> = idx_in_bits
+                .clone()
                 .into_iter()
                 .enumerate()
-                .map(|(i, b)| AllocatedBit::alloc(cs.namespace(|| format!("{} : idx {}", j, i)), Some(b)))
+                .map(|(i, b)| {
+                    AllocatedBit::alloc(cs.namespace(|| format!("{} : idx {}", j, i)), Some(b))
+                })
                 .collect::<Result<Vec<AllocatedBit>, SynthesisError>>()
                 .unwrap();
-            let is_valid =
-                Boolean::from(
-                    path_verify_circuit::<
-                        Fp,
-                        U1,
-                        U2,
-                        HEIGHT,
-                        _,
-                    >(&mut cs.namespace(|| format!("{} : is_valid false", j)), root_var, val_var.clone(), idx_var.clone(), siblings_var)
-                    .unwrap(),
-                );
-            Boolean::enforce_equal(&mut cs.namespace(|| format!("{} : enforce false", j)), &is_valid, &Boolean::constant(false)).unwrap();
+            let is_valid = Boolean::from(
+                path_verify_circuit::<Fp, U1, U2, HEIGHT, _>(
+                    &mut cs.namespace(|| format!("{} : is_valid false", j)),
+                    root_var,
+                    val_var.clone(),
+                    idx_var.clone(),
+                    siblings_var,
+                )
+                .unwrap(),
+            );
+            Boolean::enforce_equal(
+                &mut cs.namespace(|| format!("{} : enforce false", j)),
+                &is_valid,
+                &Boolean::constant(false),
+            )
+            .unwrap();
 
-            // Insert Leaf    
+            // Insert Leaf
             tree.insert(idx_in_bits.clone(), &leaf);
 
             let new_path = tree.get_siblings_path(idx_in_bits.clone());
 
             // Allocating New Variables
-            let new_root_var: AllocatedNum<Fp> = AllocatedNum::alloc_input(cs.namespace(|| format!("new root {}", j)), || Ok(tree.root)).unwrap();
+            let new_root_var: AllocatedNum<Fp> =
+                AllocatedNum::alloc_input(cs.namespace(|| format!("new root {}", j)), || {
+                    Ok(tree.root)
+                })
+                .unwrap();
             let new_siblings_var: Vec<AllocatedNum<Fp>> = new_path
                 .siblings
                 .into_iter()
                 .enumerate()
-                .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("{} : new sibling {}", j, i)), || Ok(s)))
+                .map(|(i, s)| {
+                    AllocatedNum::alloc(
+                        cs.namespace(|| format!("{} : new sibling {}", j, i)),
+                        || Ok(s),
+                    )
+                })
                 .collect::<Result<Vec<AllocatedNum<Fp>>, SynthesisError>>()
                 .unwrap();
-            let is_valid =
-                Boolean::from(
-                    path_verify_circuit::<
-                        Fp,
-                        U1,
-                        U2,
-                        HEIGHT,
-                        _,
-                    >(&mut cs.namespace(|| format!("{} : is_valid true", j)), new_root_var, val_var, idx_var, new_siblings_var)
-                    .unwrap(),
-                );
-            Boolean::enforce_equal(&mut cs.namespace(|| format!("{} : enforce true", j)), &is_valid, &Boolean::constant(true)).unwrap();
+            let is_valid = Boolean::from(
+                path_verify_circuit::<Fp, U1, U2, HEIGHT, _>(
+                    &mut cs.namespace(|| format!("{} : is_valid true", j)),
+                    new_root_var,
+                    val_var,
+                    idx_var,
+                    new_siblings_var,
+                )
+                .unwrap(),
+            );
+            Boolean::enforce_equal(
+                &mut cs.namespace(|| format!("{} : enforce true", j)),
+                &is_valid,
+                &Boolean::constant(true),
+            )
+            .unwrap();
         }
 
         println!("the number of inputs are {:?}", cs.num_inputs());

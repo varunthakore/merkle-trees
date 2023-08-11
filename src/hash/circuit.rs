@@ -48,8 +48,8 @@ pub fn hash_circuit<F: PrimeField, A: Arity<F>, CS: ConstraintSystem<F>>(
 mod tests {
     use super::*;
     use crate::hash::vanilla::hash;
-    use ff::Field;
     use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use ff::Field;
     use generic_array::typenum::{U2, U3};
     use neptune::sponge::vanilla::Sponge;
     use neptune::Strength;
@@ -93,7 +93,7 @@ mod tests {
     fn test_node_hash() {
         let mut rng = rand::thread_rng();
         let mut cs = TestConstraintSystem::<Fp>::new();
-        let inp = vec![Fp::random(&mut rng);2];
+        let inp = vec![Fp::random(&mut rng); 2];
         let inp_alloc: Vec<AllocatedNum<Fp>> = inp
             .clone()
             .into_iter()

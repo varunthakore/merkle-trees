@@ -39,9 +39,7 @@ pub fn is_less<F: PrimeField<Repr = [u8; 32]> + PrimeFieldBits, CS: ConstraintSy
     )?;
     let exp255 = BigNat::alloc_from_nat(
         &mut cs.namespace(|| "exp255 bignat"),
-        || {
-            Ok(BigInt::from(2u64).pow(255))
-        },
+        || Ok(BigInt::from(2u64).pow(255)),
         128,
         2,
     )?;
@@ -53,7 +51,10 @@ pub fn is_less<F: PrimeField<Repr = [u8; 32]> + PrimeFieldBits, CS: ConstraintSy
 
     let diff_bits_var = diff.decompose(&mut cs.namespace(|| "decompose into bits"))?;
     assert_eq!(diff_bits_var.allocations.len(), 256);
-    let last_bit = AllocatedBit::alloc(&mut cs.namespace(|| "alloc last bit"), diff_bits_var.allocations[255].value)?;
+    let last_bit = AllocatedBit::alloc(
+        &mut cs.namespace(|| "alloc last bit"),
+        diff_bits_var.allocations[255].value,
+    )?;
     Ok(Boolean::from(last_bit).not())
 }
 
@@ -86,9 +87,12 @@ where
         leaf: Leaf<F, A>,
     ) -> AllocatedLeaf<F, A> {
         AllocatedLeaf {
-            value: AllocatedNum::alloc(cs.namespace(|| "leaf value"), || Ok(leaf.value.unwrap())).unwrap(),
-            next_value: AllocatedNum::alloc(cs.namespace(|| "next value"), || Ok(leaf.next_value.unwrap()))
+            value: AllocatedNum::alloc(cs.namespace(|| "leaf value"), || Ok(leaf.value.unwrap()))
                 .unwrap(),
+            next_value: AllocatedNum::alloc(cs.namespace(|| "next value"), || {
+                Ok(leaf.next_value.unwrap())
+            })
+            .unwrap(),
             next_index: AllocatedNum::alloc(cs.namespace(|| "next index value"), || {
                 Ok(leaf.next_index.unwrap())
             })
@@ -219,9 +223,18 @@ pub fn is_non_member<
     };
 
     let and1 = Boolean::and(&mut cs.namespace(|| "cond & out1"), &cond, &out1)?;
-    let and2 = Boolean::and(&mut cs.namespace(|| "not cond and out2"), &cond.not(), &out2)?;
+    let and2 = Boolean::and(
+        &mut cs.namespace(|| "not cond and out2"),
+        &cond.not(),
+        &out2,
+    )?;
 
-    let out = Boolean::and(&mut cs.namespace(|| "and1 + and2"), &and1.not(), &and2.not())?.not();
+    let out = Boolean::and(
+        &mut cs.namespace(|| "and1 + and2"),
+        &and1.not(),
+        &and2.not(),
+    )?
+    .not();
     Ok(out)
 }
 
@@ -407,18 +420,18 @@ mod tests {
     use crate::index_tree::tree::{idx_to_bits, IndexTree, Leaf};
     use bellperson::util_cs::test_cs::TestConstraintSystem;
     use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
-    use generic_array::typenum::{U3, U2};
+    use generic_array::typenum::{U2, U3};
+    use num_bigint::BigUint;
     use pasta_curves::group::ff::Field;
     use pasta_curves::Fp;
     use std::marker::PhantomData;
-    use num_bigint::BigUint;
 
     #[test]
     fn test_insert() {
         let mut rng = rand::thread_rng();
         const HEIGHT: usize = 32;
         let empty_leaf = Leaf::default();
-        let mut tree: IndexTree<Fp, HEIGHT, U3, U2> = IndexTree::new(empty_leaf.clone() );
+        let mut tree: IndexTree<Fp, HEIGHT, U3, U2> = IndexTree::new(empty_leaf.clone());
         println!("root is {:?}", tree.root);
         let new_value = Fp::random(&mut rng);
 
@@ -461,8 +474,10 @@ mod tests {
         let mut cs = TestConstraintSystem::<Fp>::new();
 
         // Allocating all variables
-        let root_var: AllocatedNum<Fp> = AllocatedNum::alloc_input(cs.namespace(|| "root"), || Ok(tree.root)).unwrap();
-        let new_val_var = AllocatedNum::alloc(&mut cs.namespace(|| "alloc new value"), || Ok(new_value)).unwrap();
+        let root_var: AllocatedNum<Fp> =
+            AllocatedNum::alloc_input(cs.namespace(|| "root"), || Ok(tree.root)).unwrap();
+        let new_val_var =
+            AllocatedNum::alloc(&mut cs.namespace(|| "alloc new value"), || Ok(new_value)).unwrap();
         let val_var: AllocatedLeaf<Fp, U3> = AllocatedLeaf::alloc_leaf(&mut cs, new_leaf);
         let siblings_var: Vec<AllocatedNum<Fp>> = insert_path
             .siblings
@@ -471,7 +486,8 @@ mod tests {
             .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("sibling {}", i)), || Ok(s)))
             .collect::<Result<Vec<AllocatedNum<Fp>>, SynthesisError>>()
             .unwrap();
-        let idx_var: Vec<AllocatedBit> = next_leaf_idx.clone()
+        let idx_var: Vec<AllocatedBit> = next_leaf_idx
+            .clone()
             .into_iter()
             .enumerate()
             .map(|(i, b)| AllocatedBit::alloc(cs.namespace(|| format!("idx {}", i)), Some(b)))
@@ -500,14 +516,17 @@ mod tests {
         )
         .unwrap();
 
-        // Allocate new variables 
-        let new_root_var: AllocatedNum<Fp> = AllocatedNum::alloc_input(cs.namespace(|| "new root"), || Ok(tree.root)).unwrap();
+        // Allocate new variables
+        let new_root_var: AllocatedNum<Fp> =
+            AllocatedNum::alloc_input(cs.namespace(|| "new root"), || Ok(tree.root)).unwrap();
         let new_insert_path = tree.get_siblings_path(next_leaf_idx.clone());
         let new_siblings_var: Vec<AllocatedNum<Fp>> = new_insert_path
             .siblings
             .into_iter()
             .enumerate()
-            .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("new sibling {}", i)), || Ok(s)))
+            .map(|(i, s)| {
+                AllocatedNum::alloc(cs.namespace(|| format!("new sibling {}", i)), || Ok(s))
+            })
             .collect::<Result<Vec<AllocatedNum<Fp>>, SynthesisError>>()
             .unwrap();
 
@@ -565,7 +584,8 @@ mod tests {
         // Allocating all variables
         let root_var: AllocatedNum<Fp> =
             AllocatedNum::alloc_input(cs.namespace(|| "root"), || Ok(tree.root)).unwrap();
-        let alloc_member = AllocatedNum::alloc(&mut cs.namespace(|| "alloc new value"), || Ok(new_value)).unwrap();
+        let alloc_member =
+            AllocatedNum::alloc(&mut cs.namespace(|| "alloc new value"), || Ok(new_value)).unwrap();
         // Check new_leaf is_non_member should be false
         let old_is_non_member =
             is_non_member::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
@@ -573,7 +593,8 @@ mod tests {
                 root_var.clone(),
                 tree.clone(),
                 alloc_member,
-            ).unwrap();
+            )
+            .unwrap();
         Boolean::enforce_equal(&mut cs, &old_is_non_member, &Boolean::constant(false)).unwrap();
 
         let non_member = Fp::random(&mut rng);
@@ -586,7 +607,8 @@ mod tests {
                 root_var,
                 tree.clone(),
                 alloc_non_member,
-            ).unwrap();
+            )
+            .unwrap();
         Boolean::enforce_equal(&mut cs, &new_is_non_member, &Boolean::constant(true)).unwrap();
 
         println!("the number of inputs are {:?}", cs.num_inputs());
