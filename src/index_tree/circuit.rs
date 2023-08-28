@@ -2,12 +2,11 @@ use ff::{PrimeField, PrimeFieldBits};
 use neptune::sponge::vanilla::{Sponge, SpongeTrait};
 use neptune::{Arity, Strength};
 
-use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
-use bellperson::Namespace;
-use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper::gadgets::{boolean::{AllocatedBit, Boolean}, num::AllocatedNum};
+use bellpepper_core::{Namespace, ConstraintSystem, SynthesisError};
 
-use bellperson_nonnative::mp::bignat::BigNat;
-use bellperson_nonnative::util::num::Num;
+use bellpepper_nonnative::mp::bignat::BigNat;
+use bellpepper_nonnative::util::num::Num;
 use num_bigint::BigInt;
 
 use crate::{
@@ -418,8 +417,9 @@ pub fn insert<
 mod tests {
     use super::*;
     use crate::index_tree::tree::{idx_to_bits, IndexTree, Leaf};
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
-    use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+    use bellpepper_core::{ConstraintSystem, SynthesisError};
+    use bellpepper_core::test_cs::TestConstraintSystem;
+    use bellpepper::gadgets::num::AllocatedNum;
     use generic_array::typenum::{U2, U3};
     use num_bigint::BigUint;
     use pasta_curves::group::ff::Field;
