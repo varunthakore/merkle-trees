@@ -1,5 +1,5 @@
 # Merkle Trees
-This repository contains implementation of the following Merkle Trees along with R1CS circuits implemented using [bellperson](https://github.com/filecoin-project/bellperson) (Filecoin's fork of [bellman](https://github.com/zkcrypto/bellman)).
+This repository contains implementation of the following Merkle Trees along with R1CS circuits implemented using [bellpepper](https://github.com/lurk-lab/bellpepper).
 
 1. **Vanilla Merkle Tree** - circuit to verify membership 
 2. **Indexed Merkle Tree** - circuit for insertion, checking membership and checking non-membership
