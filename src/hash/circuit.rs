@@ -1,7 +1,8 @@
 use ff::PrimeField;
 use neptune::{circuit2::Elt, poseidon::PoseidonConstants, Arity};
 
-use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper::gadgets::num::AllocatedNum;
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 
 use neptune::sponge::{
     api::{IOPattern, SpongeAPI, SpongeOp},
@@ -48,7 +49,7 @@ pub fn hash_circuit<F: PrimeField, A: Arity<F>, CS: ConstraintSystem<F>>(
 mod tests {
     use super::*;
     use crate::hash::vanilla::hash;
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellpepper_core::test_cs::TestConstraintSystem;
     use ff::Field;
     use generic_array::typenum::{U2, U3};
     use neptune::sponge::vanilla::Sponge;

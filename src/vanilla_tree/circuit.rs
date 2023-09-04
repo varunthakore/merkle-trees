@@ -1,6 +1,6 @@
 use crate::hash::circuit::hash_circuit;
-use bellperson::gadgets::boolean::{AllocatedBit, Boolean};
-use bellperson::{gadgets::num::AllocatedNum, ConstraintSystem, SynthesisError};
+use bellpepper::gadgets::{boolean::{AllocatedBit, Boolean}, num::AllocatedNum};
+use bellpepper_core::{ConstraintSystem, SynthesisError};
 use ff::{PrimeField, PrimeFieldBits};
 use neptune::sponge::vanilla::{Sponge, SpongeTrait};
 use neptune::{Arity, Strength};
@@ -64,7 +64,7 @@ pub fn path_verify_circuit<
 mod tests {
     use super::*;
     use crate::vanilla_tree::tree::{idx_to_bits, Leaf, MerkleTree};
-    use bellperson::util_cs::test_cs::TestConstraintSystem;
+    use bellpepper_core::test_cs::TestConstraintSystem;
     use ff::Field;
     use generic_array::typenum::{U1, U2};
     use pasta_curves::Fp;
