@@ -243,18 +243,20 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
     }
 
     // Get Leaf with containing value
-    pub fn get_leaf(&self, value: Option<F>) -> Leaf<F, AL> {
+    pub fn get_leaf(&self, value: Option<F>) -> (Leaf<F, AL>, u64) {
         match value {
             Some(value) => {
                 let mut out_leaf = Leaf::default();
-                for  leaf in self.inserted_leaves.iter() {
+                let mut out_index = 0;
+                for (i,leaf) in self.inserted_leaves.iter().enumerate() {
                     if leaf.value.unwrap() == value
                     {
                         out_leaf = leaf.clone();
+                        out_index = i as u64;
                         break;
                     }
                 }
-                out_leaf
+                (out_leaf, out_index)
             }
             None => {
                 let out_leaf = Leaf {
@@ -263,7 +265,7 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
                     next_value: None,
                     _arity: PhantomData,
                 };
-                out_leaf
+                (out_leaf, 0)
             }
         }
     }
