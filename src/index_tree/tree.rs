@@ -241,6 +241,32 @@ impl<F: PrimeField + PrimeFieldBits + PartialOrd, const N: usize, AL: Arity<F>, 
             }
         }
     }
+
+    // Get Leaf with containing value
+    pub fn get_leaf(&self, value: Option<F>) -> Leaf<F, AL> {
+        match value {
+            Some(value) => {
+                let mut out_leaf = Leaf::default();
+                for  leaf in self.inserted_leaves.iter() {
+                    if leaf.value.unwrap() == value
+                    {
+                        out_leaf = leaf.clone();
+                        break;
+                    }
+                }
+                out_leaf
+            }
+            None => {
+                let out_leaf = Leaf {
+                    value: None,
+                    next_index: None,
+                    next_value: None,
+                    _arity: PhantomData,
+                };
+                out_leaf
+            }
+        }
+    }
 }
 
 pub fn idx_to_bits<F: PrimeField + PrimeFieldBits>(depth: usize, idx: F) -> Vec<bool> {
