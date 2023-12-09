@@ -6,14 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bellpepper-core = { version = "0.2.0", default-features = false }
-bellpepper = { version = "0.2.0", default-features = false }
+bellpepper-core = { version = "0.4.0", default-features = false }
+bellpepper = { version = "0.4.0", default-features = false }
 ff = { version = "0.13", features = ["derive"] }
 num-bigint = "0.4.3"
-bellpepper-nonnative = { git = "https://github.com/avras/bellperson-nonnative.git" }
-neptune = "11.0.0"
+bellpepper-nonnative = { git = "https://github.com/varunthakore/bellperson-nonnative.git" }
+neptune = "13.0.0"
 
 [dev-dependencies]
 rand = "0.8.5"
-generic-array = "0.14.6"
+generic-array = "1.0.0"
 pasta_curves = "0.5.1"

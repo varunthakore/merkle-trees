@@ -1,9 +1,7 @@
 use ff::PrimeField;
 use neptune::{circuit2::Elt, poseidon::PoseidonConstants, Arity};
 
-use bellpepper::gadgets::num::AllocatedNum;
-use bellpepper_core::{ConstraintSystem, SynthesisError};
-
+use bellpepper_core::{ConstraintSystem, SynthesisError, num::AllocatedNum};
 use neptune::sponge::{
     api::{IOPattern, SpongeAPI, SpongeOp},
     circuit::SpongeCircuit,
