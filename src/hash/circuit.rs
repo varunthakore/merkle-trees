@@ -82,8 +82,8 @@ mod tests {
             |lc| lc + exp_hash_out_var.get_variable(),
         );
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 1);
+        assert_eq!(cs.num_constraints(), 266);
 
         assert!(cs.is_satisfied());
     }
@@ -115,8 +115,8 @@ mod tests {
             |lc| lc + exp_hash_out_var.get_variable(),
         );
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 1);
+        assert_eq!(cs.num_constraints(), 239);
 
         assert!(cs.is_satisfied());
     }

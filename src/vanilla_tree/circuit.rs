@@ -182,8 +182,8 @@ mod tests {
             .unwrap();
         }
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 21);
+        assert_eq!(cs.num_constraints(), 158260);
 
         assert!(cs.is_satisfied());
     }

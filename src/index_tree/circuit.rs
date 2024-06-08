@@ -432,7 +432,6 @@ mod tests {
         const HEIGHT: usize = 32;
         let empty_leaf = Leaf::default();
         let mut tree: IndexTree<Fp, HEIGHT, U3, U2> = IndexTree::new(empty_leaf.clone());
-        println!("root is {:?}", tree.root);
         let new_value = Fp::random(&mut rng);
 
         let mut cs = TestConstraintSystem::<Fp>::new();
@@ -447,9 +446,8 @@ mod tests {
             new_val_var,
         )
         .unwrap();
-        println!("root is {:?}", tree.root);
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 2);
+        assert_eq!(cs.num_constraints(), 25309);
 
         assert!(cs.is_satisfied());
     }
@@ -543,8 +541,8 @@ mod tests {
         );
         Boolean::enforce_equal(&mut cs, &is_valid, &Boolean::constant(true)).unwrap();
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 3);
+        assert_eq!(cs.num_constraints(), 41235);
 
         assert!(cs.is_satisfied());
     }
@@ -611,8 +609,8 @@ mod tests {
             .unwrap();
         Boolean::enforce_equal(&mut cs, &new_is_non_member, &Boolean::constant(true)).unwrap();
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 2);
+        assert_eq!(cs.num_constraints(), 20654);
 
         assert!(cs.is_satisfied());
     }
@@ -637,11 +635,10 @@ mod tests {
             .get_value()
             .unwrap();
 
-        println!("{:?} < {:?} {:?}", in1, in2, op.clone());
         assert_eq!(in1_int < in2_int, op);
 
-        println!("the number of inputs are {:?}", cs.num_inputs());
-        println!("the number of constraints are {}", cs.num_constraints());
+        assert_eq!(cs.num_inputs(), 1);
+        assert_eq!(cs.num_constraints(), 782);
 
         assert!(cs.is_satisfied());
     }
