@@ -162,9 +162,10 @@ pub fn is_non_member<
     root_var: AllocatedNum<F>,
     tree: IndexTree<F, N, AL, AN>,
     new_value: AllocatedNum<F>,
+    low_leaf: Leaf<F, AL>,
+    low_index_int: u64,
 ) -> Result<Boolean, SynthesisError> {
     // Get low leaf
-    let (low_leaf, low_index_int) = tree.get_low_leaf(new_value.get_value());
     let low_leaf_var: AllocatedLeaf<F, AL> = AllocatedLeaf::alloc_leaf(&mut cs, low_leaf);
     let low_leaf_idx = idx_to_bits(N, F::from(low_index_int));
     let low_leaf_siblings = tree.get_siblings_path(low_leaf_idx.clone()).siblings;
@@ -249,6 +250,8 @@ pub fn insert<
     tree: &mut IndexTree<F, N, AL, AN>,
     root_var: AllocatedNum<F>,
     new_val: AllocatedNum<F>,
+    low_leaf: Leaf<F, AL>,
+    low_index_int: u64,
 ) -> Result<(), SynthesisError> {
     // Check that leaf at next_insertion_index is empty
     let next_insetion_idx_bits = idx_to_bits(N, tree.next_insertion_idx)
@@ -275,8 +278,7 @@ pub fn insert<
     )?;
     Boolean::enforce_equal(&mut cs, &check_empty, &Boolean::constant(true))?;
 
-    // Get low leaf
-    let (low_leaf, low_index_int) = tree.get_low_leaf(new_val.get_value());
+    // Get low leaf var
 
     let mut low_leaf_var =
         AllocatedLeaf::alloc_leaf(&mut cs.namespace(|| "alloc low leaf"), low_leaf.clone());
@@ -439,11 +441,16 @@ mod tests {
             AllocatedNum::alloc_input(cs.namespace(|| "root var"), || Ok(tree.root)).unwrap();
         let new_val_var =
             AllocatedNum::alloc(cs.namespace(|| "new value"), || Ok(new_value)).unwrap();
+        
+        let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+        
         insert::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
             cs.namespace(|| "Insert value"),
             &mut tree,
             root_var,
             new_val_var,
+            low_leaf,
+            low_index_int
         )
         .unwrap();
         assert_eq!(cs.num_inputs(), 2);
@@ -505,12 +512,17 @@ mod tests {
         );
         Boolean::enforce_equal(&mut cs, &is_valid, &Boolean::constant(false)).unwrap();
 
+        // Get low leaf
+        let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+
         // Insert new_value
         insert::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
             cs.namespace(|| "Insert value"),
             &mut tree,
             root_var,
             new_val_var,
+            low_leaf,
+            low_index_int
         )
         .unwrap();
 
@@ -584,6 +596,10 @@ mod tests {
             AllocatedNum::alloc_input(cs.namespace(|| "root"), || Ok(tree.root)).unwrap();
         let alloc_member =
             AllocatedNum::alloc(&mut cs.namespace(|| "alloc new value"), || Ok(new_value)).unwrap();
+        
+        // Get low leaf
+        let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+
         // Check new_leaf is_non_member should be false
         let old_is_non_member =
             is_non_member::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
@@ -591,6 +607,8 @@ mod tests {
                 root_var.clone(),
                 tree.clone(),
                 alloc_member,
+                low_leaf,
+                low_index_int
             )
             .unwrap();
         Boolean::enforce_equal(&mut cs, &old_is_non_member, &Boolean::constant(false)).unwrap();
@@ -598,6 +616,10 @@ mod tests {
         let non_member = Fp::random(&mut rng);
         let alloc_non_member =
             AllocatedNum::alloc(cs.namespace(|| "non member"), || Ok(non_member)).unwrap();
+        
+        // Get low leaf
+        let (low_leaf, low_index_int) = tree.get_low_leaf(Some(non_member));
+
         // Check new_leaf is_non_member should be true
         let new_is_non_member =
             is_non_member::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
@@ -605,6 +627,8 @@ mod tests {
                 root_var,
                 tree.clone(),
                 alloc_non_member,
+                low_leaf,
+                low_index_int
             )
             .unwrap();
         Boolean::enforce_equal(&mut cs, &new_is_non_member, &Boolean::constant(true)).unwrap();
