@@ -14,7 +14,6 @@ use crate::{
     index_tree::tree::{idx_to_bits, Leaf},
 };
 
-use super::tree::IndexTree;
 use std::marker::PhantomData;
 
 // Code adapted from https://github.com/iden3/circomlib/blob/cff5ab6288b55ef23602221694a6a38a0239dcc0/circuits/comparators.circom#L89
@@ -160,15 +159,14 @@ pub fn is_non_member<
 >(
     mut cs: CS,
     root_var: AllocatedNum<F>,
-    tree: IndexTree<F, N, AL, AN>,
     new_value: AllocatedNum<F>,
     low_leaf: Leaf<F, AL>,
     low_index_int: u64,
+    low_leaf_siblings: Vec<F>,
 ) -> Result<Boolean, SynthesisError> {
     // Get low leaf
     let low_leaf_var: AllocatedLeaf<F, AL> = AllocatedLeaf::alloc_leaf(&mut cs, low_leaf);
     let low_leaf_idx = idx_to_bits(N, F::from(low_index_int));
-    let low_leaf_siblings = tree.get_siblings_path(low_leaf_idx.clone()).siblings;
 
     let low_leaf_siblings_var: Vec<AllocatedNum<F>> = low_leaf_siblings
         .into_iter()
@@ -247,21 +245,26 @@ pub fn insert<
     CS: ConstraintSystem<F>,
 >(
     mut cs: CS,
-    tree: &mut IndexTree<F, N, AL, AN>,
     root_var: AllocatedNum<F>,
     new_val: AllocatedNum<F>,
     low_leaf: Leaf<F, AL>,
     low_index_int: u64,
-) -> Result<(), SynthesisError> {
+    low_leaf_sib: Vec<F>,
+    next_insertion_idx: F,
+    next_insertion_idx_siblings: Vec<F>,
+    new_leaf_sib: Vec<F>, // New leaf siblings sfter inserting New Low Leaf
+) -> Result<AllocatedNum<F>, SynthesisError> {
+    // hash params
+    let leaf_hash_params = Sponge::<F, AL>::api_constants(Strength::Standard);
+    let node_hash_params = Sponge::<F, AN>::api_constants(Strength::Standard);
+
     // Check that leaf at next_insertion_index is empty
-    let next_insetion_idx_bits = idx_to_bits(N, tree.next_insertion_idx)
+    let next_insetion_idx_bits = idx_to_bits(N, next_insertion_idx)
         .into_iter()
         .enumerate()
         .map(|(i, b)| AllocatedBit::alloc(cs.namespace(|| format!("next idx {}", i)), Some(b)))
         .collect::<Result<Vec<AllocatedBit>, SynthesisError>>()?;
-    let next_insertion_index_siblings = tree
-        .get_siblings_path(idx_to_bits(N, tree.next_insertion_idx))
-        .siblings
+    let next_insertion_index_siblings = next_insertion_idx_siblings
         .into_iter()
         .enumerate()
         .map(|(i, s)| AllocatedNum::alloc(cs.namespace(|| format!("next sibling {}", i)), || Ok(s)))
@@ -331,23 +334,23 @@ pub fn insert<
     low_leaf_var.next_value = new_val.clone();
     low_leaf_var.next_index =
         AllocatedNum::alloc(&mut cs.namespace(|| "alloc next insertion idx"), || {
-            Ok(tree.next_insertion_idx.clone())
+            Ok(next_insertion_idx.clone())
         })?;
     low_leaf_var.leaf = Leaf {
         value: low_leaf.value,
         next_value: new_val.get_value(),
-        next_index: Some(tree.next_insertion_idx),
+        next_index: Some(next_insertion_idx),
         _arity: PhantomData::<AL>,
     };
 
     // Insert new low leaf into tree
     let mut low_leaf_idx = idx_to_bits(N, F::from(low_index_int));
-    let mut low_leaf_siblings = tree.get_siblings_path(low_leaf_idx.clone()).siblings;
+    let mut low_leaf_siblings = low_leaf_sib;
     low_leaf_idx.reverse(); // Reverse since path was from root to leaf but I am going leaf to root
     let mut cur_low_leaf_hash = hash_circuit(
         &mut cs.namespace(|| "low leaf hash"),
         AllocatedLeaf::alloc_leaf_to_vec(&low_leaf_var),
-        &tree.leaf_hash_params,
+        &leaf_hash_params,
     )?
     .get_value()
     .unwrap_or(F::ZERO); // default value to pass None
@@ -360,30 +363,25 @@ pub fn insert<
             // leaf falls on the right side
             (sibling, cur_low_leaf_hash)
         };
-        let val = (l, r);
         let l_var = AllocatedNum::alloc(cs.namespace(|| format!("left var {}", i)), || Ok(l))?;
         let r_var = AllocatedNum::alloc(cs.namespace(|| format!("right var {}", i)), || Ok(r))?;
         cur_low_leaf_hash = hash_circuit(
             &mut cs.namespace(|| format!("low node hash {}", i)),
             vec![l_var, r_var],
-            &tree.node_hash_params,
+            &node_hash_params,
         )?
         .get_value()
         .unwrap_or(F::ZERO); // default value to pass None
-        tree.hash_db
-            .insert(format!("{:?}", cur_low_leaf_hash.clone()), val);
     }
-    tree.root = cur_low_leaf_hash;
-    tree.inserted_leaves[low_index_int as usize] = low_leaf_var.leaf.clone();
 
     // Insert new leaf into tree
-    let mut new_leaf_idx = idx_to_bits(N, tree.next_insertion_idx); // from root to leaf
-    let mut new_leaf_siblings = tree.get_siblings_path(new_leaf_idx.clone()).siblings;
+    let mut new_leaf_idx = idx_to_bits(N, next_insertion_idx); // from root to leaf
+    let mut new_leaf_siblings = new_leaf_sib;
     new_leaf_idx.reverse(); // from leaf to root
     let mut cur_new_leaf_hash = hash_circuit(
         &mut cs.namespace(|| "new leaf hash"),
         AllocatedLeaf::alloc_leaf_to_vec(&new_leaf_var),
-        &tree.leaf_hash_params,
+        &leaf_hash_params,
     )?
     .get_value()
     .unwrap_or(F::ZERO); // default value to pass None
@@ -396,23 +394,21 @@ pub fn insert<
             // leaf falls on the right side
             (sibling, cur_new_leaf_hash)
         };
-        let val = (l, r);
         let l_var = AllocatedNum::alloc(cs.namespace(|| format!("new left var {}", i)), || Ok(l))?;
         let r_var = AllocatedNum::alloc(cs.namespace(|| format!("new right var {}", i)), || Ok(r))?;
         cur_new_leaf_hash = hash_circuit(
             &mut cs.namespace(|| format!("new node hash {}", i)),
             vec![l_var, r_var],
-            &tree.node_hash_params,
+            &node_hash_params,
         )?
         .get_value()
         .unwrap_or(F::ZERO); // default value to pass None
-
-        tree.hash_db
-            .insert(format!("{:?}", cur_new_leaf_hash.clone()), val);
     }
-    tree.root = cur_new_leaf_hash;
 
-    Ok(())
+    let new_root_alloc =
+            AllocatedNum::alloc(cs.namespace(|| "new_root_alloc"), || Ok(cur_new_leaf_hash))?;
+
+    Ok(new_root_alloc)
 }
 
 #[cfg(test)]
@@ -443,14 +439,24 @@ mod tests {
             AllocatedNum::alloc(cs.namespace(|| "new value"), || Ok(new_value)).unwrap();
         
         let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+        let low_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, Fp::from(low_index_int))).siblings;
+        
+        let next_insertion_idx = tree.next_insertion_idx;
+        let next_insertion_idx_siblings = tree.get_siblings_path(idx_to_bits(HEIGHT, next_insertion_idx)).siblings;
+
+        tree.insert_vanilla(new_value);
+        let new_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, next_insertion_idx)).siblings;
         
         insert::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
             cs.namespace(|| "Insert value"),
-            &mut tree,
             root_var,
             new_val_var,
             low_leaf,
-            low_index_int
+            low_index_int,
+            low_leaf_sib,
+            next_insertion_idx,
+            next_insertion_idx_siblings,
+            new_leaf_sib
         )
         .unwrap();
         assert_eq!(cs.num_inputs(), 2);
@@ -514,15 +520,25 @@ mod tests {
 
         // Get low leaf
         let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+        let low_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, Fp::from(low_index_int))).siblings;
+        
+        let next_insertion_idx = tree.next_insertion_idx;
+        let next_insertion_idx_siblings = tree.get_siblings_path(idx_to_bits(HEIGHT, next_insertion_idx)).siblings;
+
+        tree.insert_vanilla(new_value);
+        let new_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, next_insertion_idx)).siblings;
 
         // Insert new_value
         insert::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
             cs.namespace(|| "Insert value"),
-            &mut tree,
             root_var,
             new_val_var,
             low_leaf,
-            low_index_int
+            low_index_int,
+            low_leaf_sib,
+            next_insertion_idx,
+            next_insertion_idx_siblings,
+            new_leaf_sib
         )
         .unwrap();
 
@@ -599,16 +615,17 @@ mod tests {
         
         // Get low leaf
         let (low_leaf, low_index_int) = tree.get_low_leaf(Some(new_value));
+        let low_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, Fp::from(low_index_int))).siblings;
 
         // Check new_leaf is_non_member should be false
         let old_is_non_member =
             is_non_member::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
                 cs.namespace(|| "check non member should be false"),
                 root_var.clone(),
-                tree.clone(),
                 alloc_member,
                 low_leaf,
-                low_index_int
+                low_index_int,
+                low_leaf_sib,
             )
             .unwrap();
         Boolean::enforce_equal(&mut cs, &old_is_non_member, &Boolean::constant(false)).unwrap();
@@ -619,16 +636,17 @@ mod tests {
         
         // Get low leaf
         let (low_leaf, low_index_int) = tree.get_low_leaf(Some(non_member));
+        let low_leaf_sib = tree.get_siblings_path(idx_to_bits(HEIGHT, Fp::from(low_index_int))).siblings;
 
         // Check new_leaf is_non_member should be true
         let new_is_non_member =
             is_non_member::<Fp, U3, U2, HEIGHT, Namespace<'_, Fp, TestConstraintSystem<_>>>(
                 cs.namespace(|| "check non member should be true"),
                 root_var,
-                tree.clone(),
                 alloc_non_member,
                 low_leaf,
-                low_index_int
+                low_index_int,
+                low_leaf_sib,
             )
             .unwrap();
         Boolean::enforce_equal(&mut cs, &new_is_non_member, &Boolean::constant(true)).unwrap();
